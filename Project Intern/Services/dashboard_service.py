@@ -1,178 +1,147 @@
+from __future__ import annotations
+
 from datetime import datetime
-from DBConnector import get_db_connection
+from typing import Any, Dict, List, Optional, Tuple
 
-def _normalize_source_type(source_type: str):
-    st = (source_type or "").strip().lower()
-    if st in ("audio", "text"):
-        return st
-    return ""
 
-def _normalize_sentiment(label: str):
-    s = (label or "").strip().lower()
+def _normalize_sentiment(label: Any) -> str:
+    s = (str(label or "")).strip().lower()
     if "complaint" in s and "non" not in s:
         return "complaint"
     if "non" in s:
         return "non"
-    if "positive" in s:
-        return "non"
-    if "neutral" in s:
+    if "positive" in s or "neutral" in s:
         return "non"
     return ""
 
-def build_dashboard_data(username=None, period: str = "", source_type: str = ""):
+
+def _month_series_last_n(n: int = 12) -> List[Tuple[int, int]]:
+    now = datetime.now()
+    y, m = now.year, now.month
+    out = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    return list(reversed(out))
+
+
+def build_dashboard_data(
+    *,
+    rows: List[Dict[str, Any]],
+    period: str = "",
+    source_type: str = "",
+) -> Dict[str, Any]:
     """
-    Dashboard aggregation from DB tables:
-      - audio_sessions
-      - text_sessions
+    Build dashboard aggregates from a unified rows list.
+
+    Expected row keys (best effort):
+      - uploaded_at: datetime or iso string
+      - source_type: 'audio'/'text'
+      - sentiment_label
+      - scenario_id
 
     NOTE:
-    Your tables currently do NOT store username/userID consistently.
-    So by default we aggregate GLOBAL.
-
-    If later you add columns:
-      - audio_sessions.username
-      - text_sessions.username
-    then we can filter by username.
+      Your current MySQL schema (audio_sessions/text_sessions) does NOT store username,
+      so this dashboard is global for all users.
     """
-    now = datetime.now()
+    # Optional filter by month period (YYYY-MM)
     if period:
         try:
-            selected_year, selected_month = map(int, period.split("-"))
+            y_sel, m_sel = map(int, period.split("-"))
         except Exception:
-            selected_year, selected_month = now.year, now.month
+            y_sel, m_sel = None, None
     else:
-        selected_year, selected_month = now.year, now.month
+        y_sel, m_sel = None, None
 
-    st = _normalize_source_type(source_type)
+    def _dt(v: Any) -> Optional[datetime]:
+        if isinstance(v, datetime):
+            return v
+        if not v:
+            return None
+        try:
+            return datetime.fromisoformat(str(v))
+        except Exception:
+            return None
 
-    # month labels
-    month_labels = [f"{m:02d}" for m in range(1, 13)]
-    line_complaint = [0] * 12
-    line_non = [0] * 12
+    # Filter rows by source_type if requested
+    if source_type in ("audio", "text"):
+        rows_f = [r for r in rows if (r.get("source_type") == source_type)]
+    else:
+        rows_f = list(rows)
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    # Filter by selected month if provided
+    if y_sel and m_sel:
+        rows_f = [
+            r for r in rows_f
+            if (_dt(r.get("uploaded_at")) is not None)
+            and (_dt(r.get("uploaded_at")).year == y_sel)
+            and (_dt(r.get("uploaded_at")).month == m_sel)
+        ]
 
-    try:
-        # Aggregate counts by month + sentiment (audio + text)
-        # We use YEAR(uploaded_at) for timeline
-        sql = """
-            SELECT MONTH(uploaded_at) AS m, sentiment_label, COUNT(*) AS total
-            FROM (
-              SELECT uploaded_at, sentiment_label FROM audio_sessions
-              UNION ALL
-              SELECT uploaded_at, sentiment_label FROM text_sessions
-            ) x
-            WHERE YEAR(uploaded_at) = %s
-        """
-        params = [selected_year]
+    months = _month_series_last_n(12)
+    c_map = {k: 0 for k in months}
+    n_map = {k: 0 for k in months}
 
-        # Optional source_type filter
-        if st == "audio":
-            sql = """
-                SELECT MONTH(uploaded_at) AS m, sentiment_label, COUNT(*) AS total
-                FROM audio_sessions
-                WHERE YEAR(uploaded_at) = %s
-                GROUP BY MONTH(uploaded_at), sentiment_label
-            """
-            params = [selected_year]
-        elif st == "text":
-            sql = """
-                SELECT MONTH(uploaded_at) AS m, sentiment_label, COUNT(*) AS total
-                FROM text_sessions
-                WHERE YEAR(uploaded_at) = %s
-                GROUP BY MONTH(uploaded_at), sentiment_label
-            """
-            params = [selected_year]
-        else:
-            sql += " GROUP BY MONTH(uploaded_at), sentiment_label"
+    # for chart we always use the last 12 months from all rows (not only filtered month)
+    # but still respect source_type.
+    rows_chart = [r for r in rows if (source_type not in ("audio", "text") or r.get("source_type") == source_type)]
 
-        cur.execute(sql, params)
-        rows = cur.fetchall()
+    for r in rows_chart:
+        dt = _dt(r.get("uploaded_at"))
+        if not dt:
+            continue
+        k = (dt.year, dt.month)
+        if k not in c_map:
+            continue
+        s = _normalize_sentiment(r.get("sentiment_label"))
+        if s == "complaint":
+            c_map[k] += 1
+        elif s == "non":
+            n_map[k] += 1
 
-        for m, label, total in rows:
-            idx = int(m) - 1
-            norm = _normalize_sentiment(label)
-            if norm == "complaint":
-                line_complaint[idx] += int(total)
-            elif norm == "non":
-                line_non[idx] += int(total)
+    month_labels = [f"{mm:02d}" for (_, mm) in months]
+    line_complaint = [c_map[k] for k in months]
+    line_non = [n_map[k] for k in months]
 
-        # Donut (selected month)
-        month_c = line_complaint[selected_month - 1]
-        month_n = line_non[selected_month - 1]
-        total_all = month_c + month_n
-        pct_c = round((month_c / total_all) * 100) if total_all else 0
-        pct_n = round((month_n / total_all) * 100) if total_all else 0
+    total_c = sum(line_complaint)
+    total_n = sum(line_non)
+    total_all = total_c + total_n
+    pct_c = round((total_c / total_all) * 100) if total_all else 0
+    pct_n = round((total_n / total_all) * 100) if total_all else 0
 
-        # Scenario overview for selected month (top 10)
-        if st == "audio":
-            sql2 = """
-                SELECT scenario_id, sentiment_label, COUNT(*) AS total
-                FROM audio_sessions
-                WHERE YEAR(uploaded_at)=%s AND MONTH(uploaded_at)=%s
-                GROUP BY scenario_id, sentiment_label
-            """
-            params2 = [selected_year, selected_month]
-        elif st == "text":
-            sql2 = """
-                SELECT scenario_id, sentiment_label, COUNT(*) AS total
-                FROM text_sessions
-                WHERE YEAR(uploaded_at)=%s AND MONTH(uploaded_at)=%s
-                GROUP BY scenario_id, sentiment_label
-            """
-            params2 = [selected_year, selected_month]
-        else:
-            sql2 = """
-                SELECT scenario_id, sentiment_label, COUNT(*) AS total
-                FROM (
-                  SELECT uploaded_at, scenario_id, sentiment_label FROM audio_sessions
-                  UNION ALL
-                  SELECT uploaded_at, scenario_id, sentiment_label FROM text_sessions
-                ) x
-                WHERE YEAR(uploaded_at)=%s AND MONTH(uploaded_at)=%s
-                GROUP BY scenario_id, sentiment_label
-            """
-            params2 = [selected_year, selected_month]
+    # Scenario counts (top 10) from filtered set (period filter applies here)
+    scen: Dict[str, Dict[str, int]] = {}
+    for r in rows_f:
+        sid = str(r.get("scenario_id") or "Unknown")
+        scen.setdefault(sid, {"complaint": 0, "non": 0})
+        s = _normalize_sentiment(r.get("sentiment_label"))
+        if s == "complaint":
+            scen[sid]["complaint"] += 1
+        elif s == "non":
+            scen[sid]["non"] += 1
 
-        cur.execute(sql2, params2)
-        scen_rows = cur.fetchall()
+    scen_sorted = sorted(
+        scen.items(),
+        key=lambda x: x[1]["complaint"] + x[1]["non"],
+        reverse=True,
+    )[:10]
 
-        scen_map = {}
-        for sid, label, total in scen_rows:
-            sid_str = str(sid if sid is not None else "Unknown")
-            if sid_str not in scen_map:
-                scen_map[sid_str] = {"complaint": 0, "non": 0}
-            norm = _normalize_sentiment(label)
-            if norm == "complaint":
-                scen_map[sid_str]["complaint"] += int(total)
-            elif norm == "non":
-                scen_map[sid_str]["non"] += int(total)
+    scenario_labels = [k for k, _ in scen_sorted]
+    scenario_complaint = [v["complaint"] for _, v in scen_sorted]
+    scenario_non = [v["non"] for _, v in scen_sorted]
 
-        scen_sorted = sorted(
-            scen_map.items(),
-            key=lambda kv: kv[1]["complaint"] + kv[1]["non"],
-            reverse=True
-        )[:10]
-
-        scenario_labels = [k for k, _ in scen_sorted]
-        scenario_complaint = [v["complaint"] for _, v in scen_sorted]
-        scenario_non = [v["non"] for _, v in scen_sorted]
-
-        return {
-            "month_labels": month_labels,
-            "line_complaint": line_complaint,
-            "line_non": line_non,
-            "pct_complaint": pct_c,
-            "pct_non": pct_n,
-            "scenario_labels": scenario_labels,
-            "scenario_complaint": scenario_complaint,
-            "scenario_non": scenario_non,
-            "period": f"{selected_year}-{selected_month:02d}",
-            "source_type": st,
-            "username": username or "",
-        }
-
-    finally:
-        cur.close()
-        conn.close()
+    return {
+        "month_labels": month_labels,
+        "line_complaint": line_complaint,
+        "line_non": line_non,
+        "pct_complaint": pct_c,
+        "pct_non": pct_n,
+        "scenario_labels": scenario_labels,
+        "scenario_complaint": scenario_complaint,
+        "scenario_non": scenario_non,
+        "period": period or "",
+        "source_type": source_type or "",
+    }
