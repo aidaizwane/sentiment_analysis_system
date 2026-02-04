@@ -1,0 +1,269 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}User Profile Update{% endblock %}
+
+{% block content %}
+  <h1 class="admin-title">User Profile Update</h1>
+
+  <a href="{{ url_for('admin_account_list') }}" class="btn-back">Back</a>
+
+  <div class="edit-card">
+    <div class="edit-left"></div>
+
+    <div class="edit-form">
+      <div class="field">
+        <label>User ID</label>
+        <input id="userId" value="{{ row.id }}" readonly>
+      </div>
+
+      <div class="field">
+        <label>Full Name</label>
+        <input id="fullName" value="{{ row.full_name or '' }}" placeholder="Full Name">
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <input id="email" value="{{ row.email or '' }}" placeholder="user@eastspring.com">
+      </div>
+
+      <div class="field">
+        <label>Role</label>
+        <select id="role">
+          <option value="" disabled>Select</option>
+          <option value="ADMIN" {% if (row.role or '').upper() == 'ADMIN' %}selected{% endif %}>ADMIN</option>
+          <option value="USER" {% if (row.role or '').upper() == 'USER' %}selected{% endif %}>USER</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="btnSave" class="btn-save">Save</button>
+  </div>
+
+  <!-- Save Modal -->
+  <div id="saveOverlay" class="overlay" style="display:none;">
+    <div class="modal">
+      <!-- confirm -->
+      <div id="saveStepConfirm">
+        <div class="modal-text">Continue save?</div>
+        <div class="modal-actions">
+          <button id="btnCancelSave" class="btn-cancel">Cancel</button>
+          <button id="btnConfirmSave" class="btn-confirm">Confirm</button>
+        </div>
+      </div>
+
+      <!-- done -->
+      <div id="saveStepDone" style="display:none;">
+        <div class="modal-icon">✅</div>
+        <div class="modal-text">Successfully save!</div>
+        <button id="btnDoneSave" class="btn-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .btn-back{
+    display:inline-block;
+    margin: 8px 0 18px;
+    padding: 10px 28px;
+    background:#2a2a2a;
+    color:#fff;
+    border-radius: 999px;
+    text-decoration:none;
+    font-size: 13px;
+    box-shadow: 0 10px 18px rgba(0,0,0,0.25);
+  }
+
+  .edit-card{
+    position: relative;
+    background:#fff;
+    border-radius: 10px;
+    border: 1px solid #e4e4e4;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+    padding: 22px;
+    display:flex;
+    gap: 22px;
+    min-height: 320px;
+  }
+
+  .edit-left{
+    width: 260px;
+    border-radius: 10px;
+    background: #a7a7a7;
+  }
+
+  .edit-form{
+    flex: 1;
+    padding-top: 10px;
+    max-width: 520px;
+  }
+
+  .field{
+    margin-bottom: 14px;
+  }
+
+  .field label{
+    display:block;
+    font-size: 12px;
+    font-weight: 700;
+    color:#2b2b2b;
+    margin-bottom: 6px;
+  }
+
+  .field input, .field select{
+    width: 260px;
+    height: 28px;
+    border: none;
+    background: #f2f2f2;
+    border-radius: 3px;
+    padding: 0 10px;
+    font-size: 12px;
+    outline: none;
+  }
+
+  .field select{
+    height: 30px;
+    width: 180px;
+  }
+
+  .btn-save{
+    position:absolute;
+    right: 22px;
+    bottom: 22px;
+    padding: 10px 34px;
+    background:#2a2a2a;
+    color:#fff;
+    border:none;
+    border-radius: 999px;
+    cursor:pointer;
+    font-size: 13px;
+    box-shadow: 0 10px 18px rgba(0,0,0,0.25);
+  }
+
+  /* overlay modal */
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 9999;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+
+  .modal{
+    width: 420px;
+    max-width: 90vw;
+    background:#fff;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    text-align:center;
+  }
+
+  .modal-text{
+    margin: 10px 0 18px;
+    color:#666;
+    font-size: 13px;
+  }
+
+  .modal-actions{
+    display:flex;
+    justify-content:center;
+    gap: 14px;
+  }
+
+  .btn-cancel{
+    background:#222;
+    color:#fff;
+    border:none;
+    padding:10px 22px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+
+  .btn-confirm{
+    background:#28a745;
+    color:#fff;
+    border:none;
+    padding:10px 22px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+
+  .modal-icon{
+    font-size: 40px;
+    margin: 6px 0;
+  }
+
+  .btn-done{
+    background:#222;
+    color:#fff;
+    border:none;
+    padding:10px 28px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const userId = document.getElementById("userId");
+  const fullName = document.getElementById("fullName");
+  const email = document.getElementById("email");
+  const role = document.getElementById("role");
+
+  const btnSave = document.getElementById("btnSave");
+
+  const overlay = document.getElementById("saveOverlay");
+  const stepConfirm = document.getElementById("saveStepConfirm");
+  const stepDone = document.getElementById("saveStepDone");
+
+  const btnCancel = document.getElementById("btnCancelSave");
+  const btnConfirm = document.getElementById("btnConfirmSave");
+  const btnDone = document.getElementById("btnDoneSave");
+
+  function openConfirm() {
+    stepConfirm.style.display = "block";
+    stepDone.style.display = "none";
+    overlay.style.display = "flex";
+  }
+
+  function closeModal() {
+    overlay.style.display = "none";
+  }
+
+  btnSave.addEventListener("click", openConfirm);
+
+  btnCancel.addEventListener("click", closeModal);
+
+  btnConfirm.addEventListener("click", async () => {
+    const payload = {
+      full_name: (fullName.value || "").trim(),
+      email: (email.value || "").trim(),
+      role: (role.value || "").trim()
+    };
+
+    const res = await fetch(`/api/admin/accounts/${userId.value}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      stepConfirm.style.display = "none";
+      stepDone.style.display = "block";
+    }
+  });
+
+  btnDone.addEventListener("click", () => {
+    closeModal();
+    // stay on page OR go back to list
+    window.location.href = "{{ url_for('admin_account_list') }}";
+  });
+</script>
+{% endblock %}

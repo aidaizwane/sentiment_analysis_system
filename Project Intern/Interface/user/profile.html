@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Button */
+.btn-change-password{
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #1f1f1f;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+  margin-bottom: 18px;
+}
+.btn-change-password:hover{ opacity: .92; }
+
+/* Modal wrapper */
+.cp-modal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9999;
+}
+.cp-modal.is-open{ display:block; }
+
+/* Backdrop */
+.cp-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(2px);
+}
+
+/* Dialog */
+.cp-dialog{
+  position: absolute;
+  width: min(520px, calc(100% - 32px));
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  padding: 26px 26px 22px;
+}
+
+.cp-title{
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #333;
+}
+
+.cp-form{ display: grid; gap: 14px; }
+
+.cp-field input{
+  width: 100%;
+  height: 46px;
+  padding: 0 44px 0 18px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  outline: none;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.06);
+}
+.cp-field input:focus{ border-color: #b9b9b9; }
+
+.cp-with-icon{ position: relative; }
+.cp-eye{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.75;
+}
+
+.cp-actions{
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+.cp-submit{
+  border: none;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #1f1f1f;
+  color: #fff;
+  box-shadow: 0 14px 26px rgba(0,0,0,0.18);
+}
+
+.cp-close{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.7;
+}
+
+.cp-btn-row{
+  display: flex;
+  justify-content: flex-end; /* pushes button to right */
+  width: 100%;
+  margin-bottom: 18px; /* keep spacing like before */
+}
+
+.rf-title{
+  margin: 26px 0 14px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #111827;
+}
+
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<h1 class="page-title">MY PROFILE</h1>
+
+<!--  Profile Details  -->
+<div class="profile-summary">
+  <div class="profile-item"><b>Name:</b> {{ profile_info.name }}</div>
+  <div class="profile-item"><b>Position:</b> {{ profile_info.position }}</div>
+  <div class="profile-item"><b>Status:</b> {{ profile_info.status }}</div>
+  <div class="profile-item"><b>Department:</b> {{ profile_info.department }}</div>
+</div>
+
+<div class="cp-btn-row">
+  <button type="button" id="btnOpenChangePassword" class="btn-change-password">
+    Change Password
+  </button>
+</div>
+
+<!-- Result Feedback History Section -->
+<h2 class="section-title">Result Feedback History</h2>
+
+<div class="card">
+  
+
+  <!-- Filters (optional) - if you already have filters in other pages, match your style -->
+  <form method="GET" class="sr-filters">
+  <div class="sr-field">
+    <label class="sr-label">File Type</label>
+    <select name="file_type" class="sr-input">
+      <option value="">Select</option>
+      <option value="wav"  {{ "selected" if file_type=="wav" else "" }}>Audio</option>
+      <option value="pdf"  {{ "selected" if file_type=="pdf" else "" }}>PDF</option>
+      <option value="docx" {{ "selected" if file_type=="docx" else "" }}>DOCX</option>
+    </select>
+  </div>
+
+  <div class="sr-field">
+    <label class="sr-label">Sentiment</label>
+    <select name="sentiment" class="sr-input">
+      <option value="">All</option>
+      <option value="Complaint"      {{ "selected" if sentiment=="Complaint" else "" }}>Complaint</option>
+      <option value="Non-complaint"  {{ "selected" if sentiment=="Non-complaint" else "" }}>Non-complaint</option>
+      <option value="Neutral"        {{ "selected" if sentiment=="Neutral" else "" }}>Neutral</option>
+    </select>
+  </div>
+
+  <div class="sr-field sr-range">
+    <label class="sr-label">Date Range</label>
+    <div class="sr-range-inner">
+      <input type="date" name="start_date" value="{{ start_date }}" class="sr-input">
+      <span class="sr-dash">-</span>
+      <input type="date" name="end_date" value="{{ end_date }}" class="sr-input">
+    </div>
+  </div>
+
+  <div class="sr-field sr-search">
+    <label class="sr-label">&nbsp;</label>
+    <button type="submit" class="sr-search-btn">Search</button>
+  </div>
+</form>
+
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>File Type</th>
+          <th>File Name</th>
+          <th>Sentiment</th>
+          <th>Sentiment Score</th>
+          <th>Date Created</th>
+          <th>Comment</th>
+          <th style="text-align:right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if rows and rows|length > 0 %}
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.file_type }}</td>
+            <td>{{ r.file_name }}</td>
+            <td>{{ r.sentiment }}</td>
+            <td>{{ r.score }}</td>
+            <td style="white-space:pre-line;">{{ r.date_created }}</td>
+            <td>{{ r.comment }}</td>
+
+            <td style="text-align:right;">
+              <!-- Edit comment -->
+              <a class="icon-btn" href="{{ url_for('comment_page', row_id=r.row_id) }}" title="Edit Comment">✏️</a>
+
+              <!-- Download PDF (includes updated comment automatically) -->
+              <a class="icon-btn" href="{{ url_for('history_pdf_download', row_id=r.row_id) }}" title="Download PDF">⬇️</a>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" style="text-align:center; opacity:.7;">No history found.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sr-bottom">
+  <div></div>  {# empty left side, so pagination goes right #}
+
+  <div class="sr-pagination">
+    {# ⏮ First #}
+    {% if page > 1 %}
+      <a class="sr-page"
+         href="{{ url_for('profile',
+                          file_type=file_type,
+                          sentiment=sentiment,
+                          start_date=start_date,
+                          end_date=end_date,
+                          q=q,
+                          page=1) }}">
+        ⏮
+      </a>
+    {% else %}
+      <span class="sr-page disabled">⏮</span>
+    {% endif %}
+
+    {# ◀ Prev #}
+    {% if page > 1 %}
+      <a class="sr-page"
+         href="{{ url_for('profile',
+                          file_type=file_type,
+                          sentiment=sentiment,
+                          start_date=start_date,
+                          end_date=end_date,
+                          q=q,
+                          page=page-1) }}">
+        ◀
+      </a>
+    {% else %}
+      <span class="sr-page disabled">◀</span>
+    {% endif %}
+
+    {# Current page #}
+    <span class="sr-page active">{{ page }}</span>
+
+    {# ▶ Next #}
+    {% if page < total_pages %}
+      <a class="sr-page"
+         href="{{ url_for('profile',
+                          file_type=file_type,
+                          sentiment=sentiment,
+                          start_date=start_date,
+                          end_date=end_date,
+                          q=q,
+                          page=page+1) }}">
+        ▶
+      </a>
+    {% else %}
+      <span class="sr-page disabled">▶</span>
+    {% endif %}
+
+    {# ⏭ Last #}
+    {% if page < total_pages %}
+      <a class="sr-page"
+         href="{{ url_for('profile',
+                          file_type=file_type,
+                          sentiment=sentiment,
+                          start_date=start_date,
+                          end_date=end_date,
+                          q=q,
+                          page=total_pages) }}">
+        ⏭
+      </a>
+    {% else %}
+      <span class="sr-page disabled">⏭</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div id="changePasswordModal" class="cp-modal" aria-hidden="true">
+  <div class="cp-backdrop" data-close="true"></div>
+
+  <div class="cp-dialog" role="dialog" aria-modal="true" aria-labelledby="cpTitle">
+    <h2 id="cpTitle" class="cp-title">Change Password</h2>
+
+    <!-- SAME Flask route + POST -->
+    <form method="POST" action="{{ url_for('change_password') }}" class="cp-form">
+      <div class="cp-field">
+        <input type="password"
+               name="current_password"
+               placeholder="Current Password"
+               autocomplete="current-password"
+               required>
+      </div>
+
+      <div class="cp-field cp-with-icon">
+        <input type="password"
+               name="new_password"
+               id="new_password"
+               placeholder="New Password (Min 8 characters)"
+               minlength="8"
+               autocomplete="new-password"
+               required>
+        <button type="button" class="cp-eye" data-toggle="new_password" aria-label="Show/Hide new password">👁</button>
+      </div>
+
+      <div class="cp-field cp-with-icon">
+        <input type="password"
+               name="confirm_password"
+               id="confirm_password"
+               placeholder="Confirm New Password"
+               minlength="8"
+               autocomplete="new-password"
+               required>
+        <button type="button" class="cp-eye" data-toggle="confirm_password" aria-label="Show/Hide confirm password">👁</button>
+      </div>
+
+      <div class="cp-actions">
+        <button type="submit" class="cp-submit">Update Password</button>
+      </div>
+    </form>
+
+    <button type="button" class="cp-close" id="btnCloseChangePassword" aria-label="Close">✕</button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById("changePasswordModal");
+    const openBtn = document.getElementById("btnOpenChangePassword");
+    const closeBtn = document.getElementById("btnCloseChangePassword");
+
+    function openModal() {
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+      const firstInput = modal.querySelector("input[name='current_password']");
+      if (firstInput) setTimeout(() => firstInput.focus(), 0);
+    }
+
+    function closeModal() {
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      openBtn && openBtn.focus();
+    }
+
+    openBtn && openBtn.addEventListener("click", openModal);
+    closeBtn && closeBtn.addEventListener("click", closeModal);
+
+    // click outside to close
+    modal.addEventListener("click", (e) => {
+      if (e.target && e.target.matches("[data-close='true']")) closeModal();
+    });
+
+    // ESC to close
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("is-open")) closeModal();
+    });
+
+    // show/hide password toggles
+    modal.querySelectorAll(".cp-eye").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.getAttribute("data-toggle");
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        input.type = input.type === "password" ? "text" : "password";
+      });
+    });
+  })();
+</script>
+
+{% endblock %}
+

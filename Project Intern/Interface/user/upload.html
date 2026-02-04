@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Client Sentiment Analysis{% endblock %}
+{% block top_title %}Client Sentiment Analysis{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== Upload page layout (Step 2D) ===== */
+.upload-page{
+  max-width: 1100px;
+  margin: 0 auto;
+  display:flex;
+  flex-direction:column;
+  gap: 18px;
+}
+
+.card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.06);
+}
+
+.card-title{
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 800;
+  color:#111827;
+}
+
+.card-subtitle{
+  margin: 0 0 12px;
+  color:#6b7280;
+  font-size: 13px;
+}
+
+.dropbox{
+  border: 2px dashed #d1d5db;
+  border-radius: 14px;
+  padding: 18px;
+  background: #fafafa;
+  text-align:center;
+}
+
+.drop-title{
+  font-weight: 700;
+  color:#111827;
+  margin-bottom: 8px;
+}
+
+.drop-sub{
+  font-size: 12px;
+  color:#6b7280;
+  margin-bottom: 12px;
+}
+
+.row{
+  display:flex;
+  gap: 10px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
+.btn-like{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background:#5b5b5b;
+  color:#fff;
+  cursor:pointer;
+  font-size: 13px;
+  user-select:none;
+}
+
+.hint{
+  margin-top: 10px;
+  color:#6b7280;
+  font-size: 12px;
+}
+
+.actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 12px;
+}
+
+.btn-cancel{
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background:#fff;
+  cursor:pointer;
+  font-weight: 700;
+}
+
+.btn-upload{
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  background:#111827;
+  color:#fff;
+  cursor:pointer;
+  font-weight: 800;
+}
+
+.latest{
+  margin-top: 6px;
+}
+
+.result-item{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.result-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.result-name{
+  font-weight: 800;
+  font-size: 13px;
+  color:#111827;
+}
+
+.result-meta{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.result-score{
+  font-size: 12px;
+  color:#6b7280;
+}
+
+.result-details{
+  font-size: 12px;
+  color:#4b5563;
+  white-space: pre-line;
+}
+
+.empty-state{
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background:#fff;
+  border:1px dashed #d1d5db;
+  color:#9ca3af;
+  font-size: 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<h1 style="text-align:center; font-size:24px; letter-spacing:0.18em; text-transform:uppercase; margin-bottom:18px; color:#111827;">
+  CLIENT SENTIMENT ANALYSIS
+</h1>
+
+<div class="upload-page">
+
+  <form id="analysisForm"
+        data-show-loading="true"
+        action="{{ url_for('upload_file') }}"
+        method="post"
+        enctype="multipart/form-data">
+
+    <!-- CARD 1: AUDIO -->
+    <section class="card">
+      <h2 class="card-title">Audio Folder Upload</h2>
+      <p class="card-subtitle">Upload one/many .wav files or a folder of .wav files.</p>
+
+      <div class="dropbox">
+        <div class="drop-title">Drag your file(s) to start uploading</div>
+        <div class="drop-sub">OR</div>
+
+        <div class="row">
+          <label class="btn-like">
+            Browse files
+            <input type="file" name="audio_files" multiple accept=".wav" hidden>
+          </label>
+
+          <label class="btn-like">
+            Browse folder
+            <input type="file" name="audio_folder" webkitdirectory directory hidden>
+          </label>
+        </div>
+      </div>
+
+      <div class="hint">Only support .wav files</div>
+    </section>
+
+    <!-- CARD 2: TEXT -->
+    <section class="card">
+      <h2 class="card-title">Text Upload</h2>
+      <p class="card-subtitle">Upload a .pdf / .docx to convert into transcript and analyze.</p>
+
+      <div class="dropbox">
+        <div class="drop-title">Drag your file(s) to start uploading</div>
+        <div class="drop-sub">OR</div>
+
+        <div class="row">
+          <label class="btn-like">
+            Browse files
+            <input type="file" name="doc_files" multiple accept=".pdf,.docx" hidden>
+          </label>
+        </div>
+      </div>
+
+      <div class="hint">Only support .pdf / .docx</div>
+    </section>
+
+    <!-- ACTION BUTTONS -->
+    <div class="actions">
+      <a href="{{ url_for('home') }}" class="btn-cancel">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+
+
+  <!-- ✅ Loading box (shows while analysis runs) -->
+<div id="loadingBox"
+     style="display:none; margin-top:10px; font-weight:700; color:#111827;">
+  Processing... Please wait ⏳
+</div>
+
+
+  <!-- LATEST ANALYSIS (BELOW) -->
+  <section class="card latest">
+    <h2 class="card-title">Latest Analysis</h2>
+    <p class="card-subtitle">
+      Recently processed calls are summarised here. Full details are kept in the Sentiment History and Excel extract.
+    </p>
+
+    {% if results %}
+      {% for item in results %}
+        <div class="result-item">
+          <div class="result-top">
+            <div class="result-name">{{ item.filename }}</div>
+
+            <div class="result-meta">
+              <span class="status-pill
+                {% if item.label == 'Complaint' %} complaint
+                {% elif item.label == 'Non-complaint' %} noncomplaint
+                {% endif %}">
+                {{ item.label }}
+              </span>
+
+              <span class="result-score">
+                Score: <strong>{{ item.score }}%</strong>
+              </span>
+            </div>
+          </div>
+
+          <div class="result-details">{{ item.details }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        No analysis yet. Upload files above and click <strong>Upload</strong> to generate results.
+      </div>
+    {% endif %}
+
+  </section>
+
+</div>
+
+<div id="pageData" data-has-results="{{ '1' if results else '0' }}" style="display:none;"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.querySelector("form");
+  if (!form) return;
+
+  // Call push subscription ONCE when user submits analysis
+  form.addEventListener("submit", function () {
+    if (typeof enablePushForSentiment === "function") {
+      enablePushForSentiment();
+    }
+  }, { once: true });
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const hasResults = document.getElementById("pageData")?.dataset.hasResults === "1";
+  if (!hasResults) return;
+
+  const sound = new Audio("{{ url_for('static', filename='notification.wav') }}");
+  sound.preload = "auto";
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // expose a global function your popup can call
+  window.runSentimentAnalysis = function () {
+    const form = document.getElementById("analysisForm");
+    if (!form) return;
+
+    // show loading box if you want
+    const loading = document.getElementById("loadingBox");
+    if (loading) loading.style.display = "block";
+
+    form.submit(); // 🚀 start analysis
+  };
+});
+</script>
+
+{% endblock %}
+
+
+
+
+
+

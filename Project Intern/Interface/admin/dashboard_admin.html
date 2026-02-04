@@ -1,0 +1,255 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+  <div class="dash-head">
+    <h1 class="admin-title">Admin Dashboard</h1>
+
+    <form method="GET" action="{{ dashboard_action }}" class="dash-filter">
+      <div class="dash-label">Date Range</div>
+
+      <div class="dash-controls">
+        <!-- Admin selects which user to view -->
+        <select name="username" class="dash-select">
+          {% for u in users_list %}
+            <option value="{{ u }}" {{ 'selected' if u == dashboard_data.view_user else '' }}>
+              {{ u }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <!-- Month picker (same as user) -->
+        <input
+          id="periodPickerAdmin"
+          name="period"
+          class="date-input"
+          placeholder="Select month"
+          value="{{ dashboard_data.period or '' }}"
+          readonly
+        />
+
+        <!-- Source type (same as user) -->
+        <select name="source_type" class="dash-select">
+          <option value="" {{ '' == dashboard_data.source_type and 'selected' or '' }}>All Types</option>
+          <option value="audio" {{ 'audio' == dashboard_data.source_type and 'selected' or '' }}>Audio</option>
+          <option value="text" {{ 'text' == dashboard_data.source_type and 'selected' or '' }}>Text</option>
+        </select>
+
+        <button class="dash-search" type="submit" aria-label="Search">Apply</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="dash-card">
+    <div class="dash-inner-grid">
+
+      <!-- LEFT -->
+      <div class="dash-left">
+        <div class="chart-box">
+          <div class="chart-title">Sentiment Overview</div>
+          <canvas id="sentimentLine" height="90"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-title">Scenario Overview</div>
+          <canvas id="scenarioBar" height="110"></canvas>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="dash-right">
+        <div class="chart-box">
+          <div class="chart-title">Sentiment Percentage</div>
+          <canvas id="sentimentDonut" height="160"></canvas>
+
+          <div class="legend-row">
+            <div><span class="dot red">●</span> Complaint {{ dashboard_data.pct_complaint }}%</div>
+            <div><span class="dot grey">●</span> Non-Complaint {{ dashboard_data.pct_non }}%</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Safe JSON -->
+  <script type="application/json" id="dashboard-data">
+    {{ dashboard_data | tojson }}
+  </script>
+
+  <script>
+    const DATA = JSON.parse(document.getElementById("dashboard-data").textContent);
+    const RED = "#dc2626";
+    const GREY = "#9ca3af";
+
+    new Chart(document.getElementById("sentimentLine"), {
+      type: "line",
+      data: {
+        labels: DATA.month_labels,
+        datasets: [
+          { label: "Complaint", data: DATA.line_complaint, borderColor: RED, backgroundColor: RED, tension: 0.3 },
+          { label: "Non-Complaint", data: DATA.line_non, borderColor: GREY, backgroundColor: GREY, tension: 0.3 }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+    });
+
+    new Chart(document.getElementById("scenarioBar"), {
+      type: "bar",
+      data: {
+        labels: DATA.scenario_labels,
+        datasets: [
+          { label: "Complaint", data: DATA.scenario_complaint, backgroundColor: RED },
+          { label: "Non-Complaint", data: DATA.scenario_non, backgroundColor: GREY }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: "bottom" } },
+        scales: {
+          x: { ticks: { maxRotation: 0, minRotation: 0, autoSkip: false } },
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    new Chart(document.getElementById("sentimentDonut"), {
+      type: "doughnut",
+      data: {
+        labels: ["Complaint", "Non-Complaint"],
+        datasets: [{ data: [DATA.pct_complaint, DATA.pct_non], backgroundColor: [RED, GREY] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: "bottom" } }, cutout: "65%" }
+    });
+  </script>
+
+  <!-- Flatpickr month select (same as user) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+
+  <script>
+    flatpickr("#periodPickerAdmin", {
+      plugins: [
+        new monthSelectPlugin({
+          shorthand: true,
+          dateFormat: "Y-m",
+          altFormat: "F Y",
+          theme: "light"
+        })
+      ],
+      altInput: true,
+      allowInput: false
+    });
+  </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dash-head{
+    display:flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 18px;
+  }
+
+  .dash-filter{ text-align:left; min-width: 520px; margin-top: 6px; }
+  .dash-label{ font-size: 12px; color:#4c4c4c; margin-bottom:6px; font-weight:700; }
+  .dash-controls{ display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+  .dash-label { visibility: hidden; }
+
+  .date-input{
+    width: 170px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid #d6d6d6;
+    padding: 0 12px;
+    font-size: 12px;
+    background: #fff;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.14);
+    outline: none;
+  }
+
+  .dash-select{
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid #d6d6d6;
+    padding: 0 12px;
+    font-size: 12px;
+    background: #fff;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.14);
+    outline: none;
+  }
+
+  .dash-search{
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    border: none;
+    background: #2a2a2a;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.22);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0 22px;
+    font-size: 12px;
+    font-weight: 600;
+
+  }
+
+  /* Keep your big card look */
+  .dash-card{
+    background:#fff;
+    border-radius: 12px;
+    border: 1px solid #e4e4e4;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+
+  .dash-inner-grid{
+    display:grid;
+    grid-template-columns: 1.6fr 0.9fr;
+    gap: 18px;
+    align-items:start;
+  }
+
+  .dash-left{ display:flex; flex-direction:column; gap:18px; }
+  .dash-right{ display:flex; flex-direction:column; gap:18px; }
+
+  .chart-box{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+    padding:16px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+  }
+
+  .chart-title{ font-weight:700; margin-bottom:10px; }
+
+  .legend-row{
+    display:flex;
+    gap:18px;
+    margin-top:10px;
+    font-size:12px;
+    color:#374151;
+  }
+  .dot.red{ color:#dc2626; }
+  .dot.grey{ color:#9ca3af; }
+
+  @media (max-width: 900px){
+    .dash-head{ flex-direction: column; align-items: stretch; }
+    .dash-filter{ min-width: unset; }
+    .dash-inner-grid{ grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+

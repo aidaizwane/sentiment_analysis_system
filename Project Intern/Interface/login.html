@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Client Sentiment Analysis</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f4f4;
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 16px;
+      cursor: pointer;
+      width: 100%;
+      border: none;
+      border-radius: 6px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    .btn-admin {
+      background: #b71c1c;
+      color: #fff;
+    }
+    .btn-user {
+      background: #333;
+      color: #fff;
+    }
+    .flash {
+      color: red;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .footer {
+      margin-top: 20px;
+      font-size: 0.85em;
+      text-align: center;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Login</h1>
+
+  <!-- Flash message -->
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">
+        {% for msg in messages %}
+          <div>{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form action="{{ url_for('login') }}" method="post">
+    <div class="form-group">
+      <label for="username">Username:</label>
+      <input id="username" name="username" type="text" required>
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password:</label>
+      <input id="password" name="password" type="password" required>
+    </div>
+
+    <!-- TWO BUTTONS (IMPORTANT) -->
+    <button type="submit" name="login_type" value="admin" class="btn-admin">
+      Login as Admin
+    </button>
+
+    <button type="submit" name="login_type" value="user" class="btn-user">
+      Login as User
+    </button>
+  </form>
+
+  
+
+</body>
+</html>

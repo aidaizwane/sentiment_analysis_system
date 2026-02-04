@@ -1,0 +1,8 @@
+flask
+google-genai
+mysql-connector-python
+pypdf
+python-docx
+scikit-learn
+pandas
+joblib

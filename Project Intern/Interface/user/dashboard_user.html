@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block top_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
+
+<style>
+  /* Align dashboard title center and period form to the right */
+  .center-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .page-title {
+    flex: 1;
+    text-align: center;
+    margin: 0; /* avoids extra spacing */
+  }
+
+  .period-form {
+    margin-left: auto;
+  }
+</style>
+<div class="center-wrapper">
+    <h1 class="page-title">DASHBOARD</h1>
+
+  <!-- Filter (Top right) -->
+  <form method="GET" action="{{ url_for('dashboard') }}"
+      class="period-form"
+      style="display:flex; gap:10px; align-items:center;">
+    
+    <input
+      id="periodPicker"
+      name="period"
+      class="sr-input"
+      style="height:40px; width:170px;"
+      placeholder="Select month"
+      value="{{ dashboard_data.period or '' }}"
+      readonly
+    />
+
+    <select name="source_type" class="sr-input" style="height:40px; width:170px;">
+       <option value="" {{ '' == dashboard_data.source_type and 'selected' or '' }}>All Types</option>
+       <option value="audio" {{ 'audio' == dashboard_data.source_type and 'selected' or '' }}>Audio</option>
+       <option value="text" {{ 'text' == dashboard_data.source_type and 'selected' or '' }}>Text</option>
+    </select>
+
+
+
+    <button class="sr-search-btn" type="submit" style="height:40px;">Apply</button>
+  </form>
+</div>
+
+<div style="display:grid; grid-template-columns: 1.6fr 0.9fr; gap:18px; align-items:start;">
+
+  <!-- LEFT: charts -->
+  <div style="display:flex; flex-direction:column; gap:18px;">
+
+    <!-- Sentiment Overview line chart -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow: 0 10px 22px rgba(0,0,0,0.10);">
+      <div style="font-weight:700; margin-bottom:10px;">Sentiment Overview</div>
+      <canvas id="sentimentLine" height="90"></canvas>
+    </div>
+
+    <!-- Scenario Overview bar chart -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow: 0 10px 22px rgba(0,0,0,0.10);">
+      <div style="font-weight:700; margin-bottom:10px;">Scenario Overview</div>
+      <canvas id="scenarioBar" height="110"></canvas>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: donut + quick links -->
+  <div style="display:flex; flex-direction:column; gap:18px;">
+
+    <!-- Donut -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow: 0 10px 22px rgba(0,0,0,0.10);">
+      <div style="font-weight:700; margin-bottom:10px;">Sentiment Percentage</div>
+      <canvas id="sentimentDonut" height="160"></canvas>
+
+      <div style="display:flex; gap:18px; margin-top:10px; font-size:12px; color:#374151;">
+        <div><span style="color:#dc2626;">●</span> Complaint {{ dashboard_data.pct_complaint }}%</div>
+        <div><span style="color:#9ca3af;">●</span> Non-Complaint {{ dashboard_data.pct_non }}%</div>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div style="background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; box-shadow: 0 10px 22px rgba(0,0,0,0.10);">
+      <div style="font-weight:700; margin-bottom:10px;">Quick Links</div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+        <a href="{{ url_for('home') }}" style="text-decoration:none; color:#111827; display:flex; justify-content:space-between;">
+          Home <span>»</span>
+        </a>
+        <a href="{{ url_for('sentiment_result') }}" style="text-decoration:none; color:#111827; display:flex; justify-content:space-between;">
+          Sentiment Result View <span>»</span>
+        </a>
+        <a href="{{ url_for('profile') }}" style="text-decoration:none; color:#111827; display:flex; justify-content:space-between;">
+          Profile View <span>»</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!--  Option A: Safe JSON container -->
+<script type="application/json" id="dashboard-data">
+  {{ dashboard_data | tojson }}
+</script>
+
+<script>
+  const DATA = JSON.parse(document.getElementById("dashboard-data").textContent);
+
+  const RED = "#dc2626";
+  const GREY = "#9ca3af";
+
+  // Line chart
+  new Chart(document.getElementById("sentimentLine"), {
+    type: "line",
+    data: {
+      labels: DATA.month_labels,
+      datasets: [
+        { label: "Complaint", data: DATA.line_complaint, borderColor: RED, backgroundColor: RED, tension: 0.3 },
+        { label: "Non-Complaint", data: DATA.line_non, borderColor: GREY, backgroundColor: GREY, tension: 0.3 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+  });
+
+
+// Scenario Overview (IDs on X-axis)
+new Chart(document.getElementById("scenarioBar"), {
+  type: "bar",
+  data: {
+    labels: DATA.scenario_labels, // ✅ Scenario IDs now on X-axis
+    datasets: [
+      { label: "Complaint", data: DATA.scenario_complaint, backgroundColor: RED },
+      { label: "Non-Complaint", data: DATA.scenario_non, backgroundColor: GREY }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: "bottom" } },
+    scales: {
+      x: {
+        ticks: {
+          maxRotation: 0,
+          minRotation: 0,
+          autoSkip: false  // ✅ prevents Chart.js from rotating // SHOW ALL IDS
+        }
+      },
+      y: {
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+  // Donut chart
+  new Chart(document.getElementById("sentimentDonut"), {
+    type: "doughnut",
+    data: {
+      labels: ["Complaint", "Non-Complaint"],
+      datasets: [{ data: [DATA.pct_complaint, DATA.pct_non], backgroundColor: [RED, GREY] }]
+    },
+    options: { responsive: true, plugins: { legend: { position: "bottom" } }, cutout: "65%" }
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+
+<script>
+  flatpickr("#periodPicker", {
+    plugins: [
+      new monthSelectPlugin({
+        shorthand: true,     // Jan, Feb, Mar ...
+        dateFormat: "Y-m",   // value sent to backend: 2026-01
+        altFormat: "F Y",    // shows user: January 2026
+        theme: "light"
+      })
+    ],
+    altInput: true,
+    allowInput: false
+  });
+</script>
+{% endblock %}
+
+

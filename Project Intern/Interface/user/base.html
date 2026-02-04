@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Client Sentiment Analysis{% endblock %}</title>
+
+  <!-- GLOBAL CSS ONLY -->
+  <style>
+
+    .sr-bottom{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top: 14px;
+}
+
+.sr-pagination{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-left: auto;
+}
+
+.sr-page{
+  display:inline-flex;
+  width:34px;
+  height:34px;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  text-decoration:none;
+  background:#e5e7eb;
+  color:#111827;
+  font-weight:700;
+}
+
+.sr-page.active{
+  background:#111827;
+  color:#ffffff;
+}
+
+.sr-page.disabled{
+  background:#e5e7eb;
+  color:#9ca3af;
+  opacity:0.7;
+  cursor:not-allowed;
+  pointer-events:none;
+}
+
+.sidebar{
+  display: flex;
+  flex-direction: column;
+}
+
+/* Push Logout to bottom-left */
+.sidebar .logout-btn{
+  margin-top: auto; /* moves it to the bottom */
+  margin-bottom: 26px;  /* pulls it upward into the frame */
+  align-self: flex-start; /*keeps it on the left */
+}
+
+/* Keep your existing style (or improve slightly) */
+.logout-btn{
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #ddd7d7;
+}
+
+.logout-btn:hover{
+  background: #fecaca;
+}
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-overlay.show {
+  display: flex;
+}
+
+/* spinner */
+#loadingOverlay .spinner{
+  width:44px;
+  height:44px;
+  border:5px solid #d1d5db;
+  border-top-color:#dc2626;
+  border-radius:50%;
+  animation: overlaySpin 0.9s linear infinite;
+  margin:0 auto 12px;
+}
+
+@keyframes overlaySpin{
+  to { transform: rotate(360deg); }
+}
+
+.loading-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #111827;
+}
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+    }
+
+    .layout {
+      min-height: 100vh;
+    }
+
+    .sidebar{
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 240px;
+      background: #ffffff;
+      border-right: 1px solid #e5e7eb;
+      padding: 24px 16px;
+      z-index: 1000;
+
+      transform: translateX(0);
+      transition: transform 220ms ease;
+    }
+
+    .sidebar.is-closed{
+      transform: translateX(-100%);
+      /* ✅ When sidebar is closed, main takes full width */
+      margin-left: 0;
+      width: 100%;
+    }
+
+      @media (max-width: 900px) {
+       .main {
+        margin-left: 0;
+      width: 100%;
+      }
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 32px;
+      color: red;
+
+       /* ✅ prevent overlap with hamburger */
+      margin-top: 48px;
+      margin-top: 3.5rem;
+    }
+
+    .menu a {
+      display: block;
+      padding: 12px 14px;
+      border-radius: 10px;
+      color: #111827;
+      text-decoration: none;
+      margin-bottom: 6px;
+    }
+
+    /* Make menu fill sidebar and stack items vertically */
+    .sidebar .menu {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      box-sizing: border-box;
+      min-height: 0;
+    }
+
+    .menu a.active,
+    .menu a:hover {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .main {
+      padding: 32px;
+      min-height: 100vh;
+       /* ✅ prevents sidebar overlap */
+      margin-left: 240px;               /* same as .sidebar width */
+      width: calc(100% - 240px);        /* stops horizontal overflow */
+      box-sizing: border-box;
+
+       /* ✅ smooth slide animation */
+      transition: margin-left 220ms ease, width 220ms ease;
+    }
+
+    .bottom-actions {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      display: flex;
+      gap: 12px;
+      z-index: 1000;
+    }
+
+    .btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+      text-decoration: none;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+      cursor: pointer;
+    }
+
+    .btn.secondary:hover { background: #f3f4f6; }
+
+    .btn.danger {
+      background: #fee2e2;
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
+
+    .btn.danger:hover { background: #fecaca; }
+
+    .page-title {
+      text-align: center;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #111827;
+      margin-bottom: 24px;
+      font-family: Arial, sans-serif;
+    }
+
+    .sidebar-toggle{
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 1101;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .notif-wrap { position: relative; display: inline-block; margin-right: 10px; }
+
+.notif-btn{
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: #fff;
+}
+.notif-btn:hover{ background: rgba(255,255,255,0.12); }
+
+.notif-icon{ font-size: 18px; line-height: 1; }
+
+.notif-badge{
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff3b3b;
+  color: white;
+  font-weight: 700;
+}
+
+.notif-dropdown{
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: 320px;
+  max-height: 420px;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.25);
+  z-index: 9999;
+}
+
+.notif-header, .notif-footer{
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+.notif-footer{ border-bottom: none; border-top: 1px solid #eee; }
+
+.notif-list{ max-height: 340px; overflow: auto; }
+
+.notif-item{
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f1f1;
+  font-size: 13px;
+  cursor: pointer;
+}
+.notif-item:hover{ background: #f7f7f7; }
+.notif-item.unread{ background: #fff6f6; }
+
+.notif-meta{ font-size: 11px; opacity: .7; margin-top: 4px; }
+
+.notif-link{
+  background: transparent;
+  border: none;
+  color: #b30000;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.notif-empty{ padding: 14px; font-size: 13px; opacity: .7; }
+
+.hidden{ display: none !important; }
+
+/* ===== Profile Page ===== */
+.profile-summary{
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  margin: 10px 0 18px;
+}
+.profile-item{
+  background:#f5f5f5;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.card{
+  background:#fff;
+  border-radius:18px;
+  padding:18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+}
+
+.section-title{ margin: 0 0 12px; }
+
+.filter-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom: 14px;
+}
+
+.table-wrap{ overflow-x:auto; }
+
+.history-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.history-table th, .history-table td{
+  padding:10px 8px;
+  border-bottom:1px solid #eaeaea;
+  font-size:13px;
+}
+
+.icon-btn{
+  text-decoration:none;
+  margin-left:8px;
+  display:inline-block;
+}
+
+.pagination{ margin-top: 14px; text-align:right; }
+.page{ padding:6px 10px; border-radius:8px; margin-left:6px; text-decoration:none; }
+.page.current{ background:#222; color:#fff; }
+
+
+
+/* =========================
+   Month Picker (Calendar) UI
+   Upgrade shape only (no layout change)
+   ========================= */
+
+/* Style the visible Flatpickr input (altInput) */
+.period-form .flatpickr-input,
+.period-form input#periodPicker,
+.period-form input[type="month"],
+.period-form input[type="text"]{
+  height: 40px;
+  width: 190px;                 /* keeps header layout stable */
+  padding: 0 14px;
+  border-radius: 14px;          /* rounded like your SR inputs */
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 15px;
+  outline: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* Focus look */
+.period-form .flatpickr-input:focus,
+.period-form input#periodPicker:focus{
+  border-color: #111827;
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.10);
+}
+
+/* Upgrade popup (Flatpickr calendar) */
+.flatpickr-calendar{
+  border-radius: 16px !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.18) !important;
+  overflow: hidden;
+}
+
+/* Header spacing */
+.flatpickr-months{
+  padding: 10px 10px 6px 10px;
+}
+
+/* Month-year title stronger */
+.flatpickr-current-month{
+  font-weight: 700;
+}
+
+/* Month cells (monthSelect plugin) */
+.flatpickr-monthSelect-month{
+  border-radius: 10px !important;
+}
+
+/* Selected and hover month */
+.flatpickr-monthSelect-month.selected,
+.flatpickr-monthSelect-month:hover{
+  background: #111827 !important;
+  color: #ffffff !important;
+}
+
+/* Optional: keep Apply button matching (shape only) */
+.period-form .sr-search-btn{
+  height: 40px;
+  border-radius: 14px;
+}
+
+/* ===== TOPBAR LAYOUT (NEW) ===== */
+.topbar{
+  height: 72px;
+  background: linear-gradient(90deg, #7b0c10, #b31217);
+  display:flex;
+  align-items:center;
+  padding: 0 22px;
+  gap: 18px;
+  color:#fff;
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+}
+
+.topbar .brand{
+  margin: 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.topbar-nav{
+  display:flex;
+  gap: 12px;
+  align-items:center;
+  margin-left: auto;
+  margin-right: 14px;
+}
+
+.topbar-nav a{
+  color:#fff;
+  text-decoration:none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.topbar-nav a.active,
+.topbar-nav a:hover{
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.topbar-logout{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-decoration:none;
+  color:#fff;
+  background: rgba(0,0,0,0.35);
+}
+
+/* Make main full width (no sidebar offset) */
+.main-full{
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
+/* ===== Shared filter UI (Sentiment Result + Profile) ===== */
+.sr-filters{
+  display:flex;
+  gap: 26px;
+  align-items: flex-end;      /* inputs align nicely on the bottom */
+  flex-wrap: wrap;
+  margin: 10px 0 18px;
+}
+
+.sr-field{ display:flex; flex-direction: column; gap: 8px; }
+
+.sr-label{
+  font-weight: 700;
+  color: #111827;
+  font-size: 15px;
+}
+
+.sr-input{
+  height: 48px;
+  min-width: 220px;
+  padding: 0 18px;
+  border-radius: 16px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 15px;
+  outline: none;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+}
+
+/* Date range group */
+.sr-range .sr-range-inner{
+  display:flex;
+  align-items:center;
+  gap: 14px;
+}
+.sr-range .sr-input{ min-width: 240px; }  /* matches screenshot width */
+.sr-dash{ font-weight: 800; color:#111827; }
+
+/* Search button (same row) */
+.sr-search-btn{
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+.sr-search-btn:hover{ opacity: 0.92; }
+
+/* Mobile wrap */
+@media (max-width: 900px){
+  .sr-input{ min-width: 190px; }
+  .sr-range .sr-input{ min-width: 190px; }
+}
+
+  </style>
+
+  <!-- PAGE-SPECIFIC CSS WILL BE INJECTED HERE -->
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+<div class="layout">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="brand">SENTIMENT ANALYSIS</div>
+    </div>
+
+    <nav class="topbar-nav">
+      <a href="{{ url_for('home') }}"
+         class="{% if request.endpoint=='home' %}active{% endif %}">
+        Upload
+      </a>
+
+      <a href="{{ url_for('dashboard') }}"
+         class="{% if request.endpoint=='dashboard' %}active{% endif %}">
+        Dashboard
+      </a>
+
+      <a href="{{ url_for('sentiment_result') }}"
+         class="{% if request.endpoint=='sentiment_result' %}active{% endif %}">
+        Sentiment Result
+      </a>
+
+      <a href="{{ url_for('profile') }}"
+         class="{% if request.endpoint=='profile' %}active{% endif %}">
+        My Profile
+      </a>
+    </nav>
+
+    <!-- Notifications -->
+<div class="notif-wrap">
+  <button id="notifBtn" class="notif-btn" type="button" aria-label="Notifications">
+    <span class="notif-icon">🔔</span>
+    <span id="notifBadge" class="notif-badge hidden">0</span>
+  </button>
+
+  <div id="notifDropdown" class="notif-dropdown hidden">
+    <div class="notif-header">
+      <span>Notifications</span>
+      <button id="markAllReadBtn" class="notif-link" type="button">Mark all read</button>
+    </div>
+
+    <div id="notifList" class="notif-list">
+      <div class="notif-empty">No new notifications</div>
+    </div>
+
+    <div class="notif-footer">
+      <a class="notif-link" href="/notifications">View all</a>
+    </div>
+  </div>
+</div>
+
+    <div class="topbar-right">
+      <a href="{{ url_for('logout') }}" class="topbar-logout">Logout</a>
+    </div>
+
+  </header>
+
+  <main class="main main-full">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+  <div class="loading-card" role="alert" aria-live="polite">
+    <div class="spinner" role="status" aria-label="Loading"></div>
+    <div class="loading-text" id="processingText">Processing... Please wait</div>
+  </div>
+</div>
+
+<script>
+  let __submitting = false;
+</script>
+
+<script>
+  function ensureNotificationPermission() {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+
+  function estimateSecondsFromFiles() {
+    // IMPORTANT: These names must match your <input name="...">
+    const audio = document.querySelector('input[name="audio_files"]');
+    const folder = document.querySelector('input[name="audio_folder"]');
+    const doc = document.querySelector('input[name="document"]');
+
+    const audioCount = audio?.files?.length || 0;
+    const folderCount = folder?.files?.length || 0;
+    const docCount = doc?.files?.length || 0;
+
+    const total = audioCount + folderCount + docCount;
+
+    const secondsPerFile = 15;      // you can change this
+    return Math.max(total * secondsPerFile, 10);
+  }
+
+  function startCountdown(seconds) {
+    const textEl = document.getElementById("processingText");
+    if (!textEl) return;
+
+    let remaining = seconds;
+
+    // Save state so RESULT PAGE knows analysis was running
+    sessionStorage.setItem("analysis_running", "1");
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    // first update
+    textEl.innerHTML = `Processing... Please wait<br>Estimated time remaining: ${formatTime(remaining)}`;
+
+    const timer = setInterval(() => {
+      remaining--;
+
+      if (remaining <= 0) {
+        clearInterval(timer);
+        textEl.innerHTML = "Finalizing analysis… Almost ready";
+        return;
+      }
+
+      textEl.innerHTML = `Processing... Please wait<br>Estimated time remaining: ${formatTime(remaining)}`;
+    }, 1000);
+  }
+
+  function showLoading() {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay) overlay.classList.add("show");
+
+    ensureNotificationPermission();         // ask permission
+    const est = estimateSecondsFromFiles(); // estimate based on file count
+    startCountdown(est);                    // show countdown
+  }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("analysisForm");
+  if (!form) return;
+
+  form.addEventListener("submit", (e) => {
+    // prevent looping/double submits
+    if (__submitting) return;
+
+    e.preventDefault();
+    __submitting = true;
+
+    showLoading();
+
+    // allow UI to paint overlay first, then submit
+    requestAnimationFrame(() => {
+      setTimeout(() => form.submit(), 50);
+    });
+  });
+});
+</script>
+
+<!-- Upload Success Popup -->
+<div id="uploadSuccessPopup" style="
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.35);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:10000;
+">
+  <div style="
+    background:#ffffff;
+    border-radius:12px;
+    padding:28px 32px;
+    text-align:center;
+    width:320px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.15);
+  ">
+    <div style="
+      width:48px;
+      height:48px;
+      margin:0 auto 14px;
+      border-radius:50%;
+      background:#22c55e;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:white;
+      font-size:26px;
+      font-weight:bold;
+    ">
+      ✓
+    </div>
+
+    <div style="font-size:15px; font-weight:600; margin-bottom:18px;">
+      Successfully Uploaded!
+    </div>
+
+    <button onclick="runSentimentAnalysis()" style="
+      background:#111827;
+      color:#ffffff;
+      border:none;
+      border-radius:8px;
+      padding:8px 16px;
+      cursor:pointer;
+      font-size:13px;
+    ">
+      Done
+    </button>
+  </div>
+</div>
+<script>
+  function showUploadPopup() {
+    const popup = document.getElementById("uploadSuccessPopup");
+    if (popup) popup.style.display = "flex";
+  }
+
+  function closeUploadPopup() {
+    const popup = document.getElementById("uploadSuccessPopup");
+    if (popup) popup.style.display = "none";
+  }
+</script>
+
+<script>
+function runSentimentAnalysis() {
+  // 1) Close popup first
+  closeUploadPopup();
+
+  // 2) Force repaint so popup disappears BEFORE loading/submit
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const form = document.getElementById("analysisForm");
+      if (!form) return;
+
+      // this triggers your submit handler (which shows loading + submits)
+      if (form.requestSubmit) form.requestSubmit();
+      else form.dispatchEvent(new Event("submit", { cancelable: true }));
+    });
+  });
+}
+</script>
+
+
+{% if show_upload_popup %}
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      showUploadPopup();
+    });
+  </script>
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Select all file inputs on the page
+    document.querySelectorAll('input[type="file"]').forEach(input => {
+      input.addEventListener("change", () => {
+        // If user selected at least 1 file, show popup
+        if (input.files && input.files.length > 0) {
+          showUploadPopup();
+        }
+      });
+    });
+  });
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const sidebar = document.getElementById("sidebar");
+    const btn = document.getElementById("sidebarToggle");
+    if (!sidebar || !btn) return;
+
+    // Restore state
+    const saved = localStorage.getItem("sidebarOpen");
+    if (saved === "false") {
+      sidebar.classList.add("is-closed");
+      btn.setAttribute("aria-expanded", "false");
+    }
+
+    btn.addEventListener("click", () => {
+      sidebar.classList.toggle("is-closed");
+      const open = !sidebar.classList.contains("is-closed");
+      btn.setAttribute("aria-expanded", String(open));
+      localStorage.setItem("sidebarOpen", String(open));
+    });
+
+    // Optional: ESC closes
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        sidebar.classList.add("is-closed");
+        btn.setAttribute("aria-expanded", "false");
+        localStorage.setItem("sidebarOpen", "false");
+      }
+    });
+  });
+</script>
+
+<script>
+  const notifBtn = document.getElementById("notifBtn");
+  const notifDropdown = document.getElementById("notifDropdown");
+  const notifBadge = document.getElementById("notifBadge");
+  const notifList = document.getElementById("notifList");
+  const markAllReadBtn = document.getElementById("markAllReadBtn");
+
+  document.addEventListener("click", (e) => {
+    if (notifBtn && notifBtn.contains(e.target)) {
+      notifDropdown.classList.toggle("hidden");
+      if (!notifDropdown.classList.contains("hidden")) loadNotifications();
+      return;
+    }
+    if (notifDropdown && !notifDropdown.contains(e.target)) {
+      notifDropdown.classList.add("hidden");
+    }
+  });
+
+  async function loadNotifications() {
+    const res = await fetch("/api/notifications?limit=10");
+    const data = await res.json();
+    renderNotifications(data.items);
+    setBadge(data.unread_count);
+  }
+
+  function setBadge(count) {
+    if (count > 0) {
+      notifBadge.textContent = count > 99 ? "99+" : count;
+      notifBadge.classList.remove("hidden");
+    } else {
+      notifBadge.classList.add("hidden");
+    }
+  }
+
+  function renderNotifications(items) {
+    notifList.innerHTML = "";
+    if (!items || items.length === 0) {
+      notifList.innerHTML = '<div class="notif-empty">No new notifications</div>';
+      return;
+    }
+
+    items.forEach(n => {
+      const div = document.createElement("div");
+      div.className = "notif-item " + (n.is_read ? "" : "unread");
+      div.innerHTML = `
+        <div>${escapeHtml(n.message)}</div>
+        <div class="notif-meta">${n.created_at}</div>
+      `;
+      div.onclick = async () => {
+        await fetch("/api/notifications/mark-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: n.id })
+        });
+        if (n.url) window.location.href = n.url;
+        else loadNotifications();
+      };
+      notifList.appendChild(div);
+    });
+  }
+
+  markAllReadBtn?.addEventListener("click", async () => {
+    await fetch("/api/notifications/mark-all-read", { method: "POST" });
+    loadNotifications();
+  });
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[s]));
+  }
+
+  // Polling: update badge every 10 seconds
+  async function poll() {
+    try {
+      const res = await fetch("/api/notifications/unread-count");
+      const data = await res.json();
+      setBadge(data.unread_count);
+    } catch (e) {}
+  }
+  poll();
+  setInterval(poll, 10000);
+</script>
+
+<script>
+(function () {
+  if (!("Notification" in window)) return;
+
+  if (Notification.permission === "default") {
+    Notification.requestPermission().catch(()=>{});
+  }
+
+  let done = false;
+
+  async function poll() {
+    if (done) return;
+    try {
+      const res = await fetch("/api/job_status", { cache: "no-store" });
+      const data = await res.json();
+
+      if (data.status === "done") {
+        done = true;
+        if (Notification.permission === "granted") {
+          new Notification("Analysis complete ✅", { body: data.message || "Result is ready." });
+        }
+      } else if (data.status === "error") {
+        done = true;
+        if (Notification.permission === "granted") {
+          new Notification("Analysis failed ❌", { body: data.message || "Something went wrong." });
+        }
+      }
+    } catch (e) {}
+  }
+
+  setInterval(poll, 3000);
+})();
+</script>
+<script src="{{ url_for('static', filename='push.js') }}"></script>
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Sentiment Result - Comment{% endblock %}
+
+{% block extra_css %}
+<style>
+  .comment-wrap{
+    max-width: 980px;
+    margin: 28px auto 60px;
+    padding: 0 18px;
+  }
+  .comment-title{
+    font-size: 44px;
+    font-weight: 900;
+    color:#111827;
+    margin: 10px 0 18px;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.10);
+  }
+  .back-btn{
+    display:inline-block;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background:#111;
+    color:#fff;
+    text-decoration:none;
+    font-weight:700;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+    margin-bottom: 18px;
+  }
+  .panel{
+    background: rgba(255,255,255,0.9);
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    padding: 18px 22px 18px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.14);
+  }
+  .field{
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 0;
+  }
+  .label{
+    font-size: 11px;
+    color:#6b7280;
+    margin-bottom: 6px;
+  }
+  .value{
+    font-size: 14px;
+    color:#111827;
+    font-weight: 600;
+  }
+  .textarea{
+    width:100%;
+    min-height: 120px;
+    resize: none;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    padding: 12px;
+    font-size: 14px;
+    outline:none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-top: 14px;
+  }
+  .save-btn{
+    padding: 10px 36px;
+    border-radius: 999px;
+    border: none;
+    background: #111;
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.20);
+  }
+
+  /* Popup overlay */
+.save-popup-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* Popup box */
+.save-popup-box{
+  background: #ffffff;
+  width: 320px;
+  padding: 26px 20px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+/* Green check icon */
+.save-popup-icon{
+  width: 44px;
+  height: 44px;
+  background: #22c55e;
+  color: #ffffff;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+/* Text */
+.save-popup-text{
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Done button */
+.save-popup-btn{
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="comment-wrap">
+
+  <div class="comment-title">Sentiment Result</div>
+
+  <a class="back-btn" href="{{ url_for('sentiment_result') }}">Back</a>
+
+  <div class="panel">
+    <form method="post">
+      <div class="field">
+        <div class="label">Filename.Wav</div>
+        <div class="value">{{ row.audio_file }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Explanation/Summary of the file</div>
+        <div class="value">{{ row.summary }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Sentiment</div>
+        <div class="value">{{ row.sentiment }}</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Sentiment Score</div>
+        <div class="value">{{ row.score_display }}</div>
+      </div>
+
+      <div class="field" style="border-bottom:none; padding-bottom:0;">
+        <div class="label">Add Comment/Feedback</div>
+        <textarea class="textarea" name="comment"
+          placeholder="Type comment here...">{{ row.comment }}</textarea>
+      </div>
+
+      <div class="actions">
+        <button class="save-btn" type="submit">Save</button>
+      </div>
+
+      <!-- SAVE POPUP (HIDDEN BY DEFAULT) -->
+    <div id="savePopup" class="save-popup-overlay" style="display:none;">
+      <div class="save-popup-box">
+        <div class="save-popup-icon">✔</div>
+        <div class="save-popup-text">Saved!</div>
+        <button type="button" class="save-popup-btn" id="savePopupDone">
+          Done
+        </button>
+      </div>
+    </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector("form");
+  const popup = document.getElementById("savePopup");
+  const doneBtn = document.getElementById("savePopupDone");
+
+  if (!form || !popup || !doneBtn) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); // ✅ stop normal submit (no redirect)
+
+    const formData = new FormData(form);
+
+    try {
+      const res = await fetch(form.action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest" // ✅ tells Flask it's AJAX
+        }
+      });
+
+      const data = await res.json();
+
+      if (data && data.success) {
+        // ✅ show popup and STAY on page
+        popup.style.display = "flex";
+      } else {
+        alert("Save failed.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Save failed.");
+    }
+  });
+
+  doneBtn.addEventListener("click", () => {
+    // ✅ close popup AND manually go back to sentiment result
+    popup.style.display = "none";
+    window.location.href = "{{ url_for('sentiment_result') }}";
+  });
+});
+</script>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}

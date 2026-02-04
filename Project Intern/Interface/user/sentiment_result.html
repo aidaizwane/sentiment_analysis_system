@@ -1,0 +1,634 @@
+{% extends "base.html" %}
+{% block title %}Sentiment Result{% endblock %}
+{% block extra_css %}
+<style>
+  /* Bulk select column */
+.sr-select-col { width: 44px; text-align: center; }
+.sr-check { width: 16px; height: 16px; cursor: pointer; }
+
+  /* === Page title (same look as DASHBOARD) === */
+  .page-title{
+    text-align:center;
+    font-size:28px;
+    font-weight:700;
+    letter-spacing:0.38em;
+    text-transform:uppercase;
+    margin: 6px 0 22px;
+    color:#111827;
+  }
+
+  /* === Toolbar wrapper (like your mockup top bar) === */
+  .sr-wrap{ max-width: 1100px; margin: 0 auto; }
+  .sr-filters{
+    display:flex;
+    align-items:flex-end;
+    gap:22px;
+    flex-wrap:wrap;              /* prevents overlap on smaller screens */
+    margin-bottom: 14px;
+  }
+
+  /* Each filter block */
+  .sr-field{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width: 180px;
+  }
+  .sr-label{
+    font-size:14px;
+    font-weight:600;
+    color:#111827;
+  }
+
+  /* Common input look (rounded + shadow) */
+  .sr-input{
+    height:42px;
+    padding: 0 14px;
+    border-radius:12px;
+    border:1px solid #d1d5db;
+    background:#ffffff;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+    outline:none;
+  }
+
+  /* Date range (two inputs with a dash) */
+  .sr-range{ min-width: 320px; }
+  .sr-range-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .sr-range-row input[type="date"]{
+    width: 170px;
+  }
+  .sr-dash{
+    font-weight:700;
+    color:#111827;
+  }
+
+  /* === Search (dark pill like your mockup) === */
+  /* Put search BELOW (under File Type) and span until end of Date Range */
+/* ✅ Search beside Date Range */
+ .sr-search{
+  display:flex;
+  align-items:flex-end;
+  gap:12px;
+  margin-top: 0;          /* remove extra top spacing */
+  min-width: 320px;       /* keeps it stable */
+ }
+
+ .sr-search-input{
+  width: 260px;           /* fixed width so it stays beside date range */
+  height:42px;
+  padding: 0 16px;
+  border-radius:12px;
+  border:1px solid #d1d5db;
+  outline:none;
+  background:#111827;
+  color:#ffffff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+ }
+
+  .sr-search-input::placeholder{
+    color: rgba(255,255,255,0.70);
+  }
+  .sr-search-btn{
+    height:42px;
+    border-radius: 10px;
+    padding: 0 16px;
+    border: 1px solid #111827;
+    background:#111827;
+    color:#ffffff;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+  }
+  .sr-search-btn:hover{ filter: brightness(1.05); }
+
+  /* === Table (clean grey grid like mockup) === */
+  .sr-table-wrap{ margin-top: 14px; }
+  .sr-table{
+    width:100%;
+    border-collapse: collapse;
+    background:#ffffff;
+    border-radius: 12px;
+    overflow:hidden;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+  }
+  .sr-table thead th{
+    background:#f3f4f6;
+    color:#111827;
+    text-align:left;
+    font-weight:700;
+    padding: 14px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size:14px;
+  }
+  .sr-table td{
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align:top;
+    font-size:14px;
+    color:#111827;
+  }
+  .sr-table tbody tr:hover{
+    background:#f9fafb;
+  }
+
+  /* === Bottom area (download pills left, pagination right) === */
+  .sr-bottom{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-top: 14px;
+  }
+  .sr-downloads{
+    display:flex;
+    gap:14px;
+  }
+  .sr-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height:40px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background:#111827;
+    color:#ffffff;
+    text-decoration:none;
+    font-weight:600;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+  }
+  .sr-btn:hover{ filter: brightness(1.05); }
+
+  .sr-pagination{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-left: auto;            /* Force pagination group to the right */
+  }
+  .sr-page{
+    display:inline-flex;
+    width:34px;
+    height:34px;
+    align-items:center;
+    justify-content:center;
+    border-radius:10px;
+    text-decoration:none;
+    background:#e5e7eb;
+    color:#111827;
+    font-weight:700;
+  }
+  .sr-page.active{
+    background:#111827;
+    color:#ffffff;
+  }
+
+  .sr-page{
+  cursor: pointer;
+  user-select: none;
+}
+
+.sr-page:hover{
+  filter: brightness(1.1);
+}
+  /* Responsive: keep search inside, drop to next line nicely */
+  @media (max-width: 1100px){
+    .sr-search{ margin-left: 0; }
+  }
+
+  .sr-ellipsis{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 0 6px;
+  font-weight:700;
+  color:#6b7280;
+}
+
+.sr-page.disabled{
+  background:#e5e7eb;
+  color:#9ca3af;
+  opacity:0.7;
+  cursor:not-allowed;
+  pointer-events:none; /* IMPORTANT: make it unclickable */
+}
+
+/* === Per-row actions inside File Type column (no layout change) === */
+.sr-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.sr-action{
+  width:34px;
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  color:#111827;
+  text-decoration:none;
+  font-weight:700;
+  line-height:1;
+}
+
+.sr-action:hover{
+  background:#f3f4f6;
+}
+
+/* Ensure <button class="sr-action"> matches <a class="sr-action"> */
+button.sr-action{
+  padding: 0;          /* remove default button padding */
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.sr-action:disabled{
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sr-date-created{
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.sr-date-created .sr-date{ font-weight: 600; white-space: nowrap; }
+.sr-date-created .sr-time{ font-size: 12px; opacity: 0.8; }
+
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- STEP 2: Reusable SVG icon definitions -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <symbol id="icon-edit" viewBox="0 0 24 24">
+    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+    <path d="M20.71 7.04a1.0 1.0 0 000-1.41L18.37 3.29a1.0 1.0 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+  </symbol>
+</svg>
+
+<div class="sr-wrap">
+
+  <div class="page-title">Sentiment Result</div>
+
+  <form method="GET" action="{{ url_for('sentiment_result') }}" class="sr-filters">
+    <div class="sr-field">
+      <div class="sr-label">File Type</div>
+      <select name="file_type" id="fileType" class="sr-input">
+        <option value="" {% if not file_type %}selected{% endif %}>Select</option>
+        <option value="wav" {% if file_type=='wav' %}selected{% endif %}>WAV</option>
+        <option value="pdf" {% if file_type=='pdf' %}selected{% endif %}>PDF</option>
+        <option value="excel" {% if file_type=='excel' %}selected{% endif %}>Excel</option>
+      </select>
+    </div>
+
+    <div class="sr-field">
+      <div class="sr-label">Sentiment</div>
+      <select name="sentiment" id="sentimentType" class="sr-input">
+        <option value="" {% if not sentiment %}selected{% endif %}>All</option>
+        <option value="Non-Complaint" {% if sentiment=='Non-Complaint' %}selected{% endif %}>Non-Complaint</option>
+        <option value="Complaint" {% if sentiment=='Complaint' %}selected{% endif %}>Complaint</option>
+        <option value="Neutral" {% if sentiment=='Neutral' %}selected{% endif %}>Neutral</option>
+      </select>
+    </div>
+
+    <div class="sr-field sr-range">
+      <div class="sr-label">Date Range</div>
+      <div class="sr-range-row">
+        <input type="date" name="start_date" id="startDate" value="{{ start_date }}" class="sr-input">
+        <span class="sr-dash">-</span>
+        <input type="date" name="end_date" id="endDate" value="{{ end_date }}" class="sr-input">
+      </div>
+    </div>
+
+    <div class="sr-search">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search" class="sr-search-input">
+      <button type="submit" class="sr-search-btn">Search</button>
+    </div>
+  </form>
+
+  <form id="bulkForm" method="POST">
+
+  <div class="sr-table-wrap">
+    <table class="sr-table">
+      <thead>
+        <tr>
+          <th class="sr-select-col">
+              <input type="checkbox" id="selectAll" class="sr-check">
+          </th>
+          <th>File Type</th>
+          <th>File Name</th>
+          <th>Summary</th>
+          <th>Sentiment</th>
+          <th>Sentiment Score</th>
+          <th>Date Created</th>
+        </tr>
+      </thead>
+      <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="sr-select-col">
+        <input type="checkbox"
+         class="sr-check rowCheck"
+         name="selected_ids"
+         value="{{ r.row_id }}">
+      </td>
+      <td>{{ r.file_type|upper }}</td>
+      <td>{{ r.audio_file }}</td>
+      <td>{{ r.summary }}</td>
+      <td>{{ r.sentiment }}</td>
+      <td>{{ r.score_display }}</td>
+
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+
+       <div class="sr-date-created">
+           <span class="sr-date">{{ r.date_display }}</span>
+           <span class="sr-time">{{ r.time_display }}</span>
+       </div>
+
+          <div class="sr-actions">
+
+  {# 1️⃣ PLAYBACK BUTTON (FIRST) #}
+  {% if r.file_type|lower == 'wav' and r.audio_file %}
+    <button type="button"
+            class="sr-action"
+            id="play-btn-{{ r.row_id }}"
+            data-row-id="{{ r.row_id }}"
+            data-audio-src="{{ url_for('audio_stream', row_id=r.row_id) }}"
+            title="Play audio"
+            aria-label="Play audio">▶</button>
+  {% else %}
+    <button type="button"
+            class="sr-action"
+            disabled
+            title="No audio"
+            aria-label="No audio"
+            style="opacity:.45; cursor:not-allowed;">▶</button>
+  {% endif %}
+
+  {# 2️⃣ DOWNLOAD PDF #}
+  <a class="sr-action"
+     href="{{ url_for('history_pdf_download', row_id=r.row_id) }}"
+     title="Download PDF">⬇</a>
+
+  {# 3️⃣ TRANSCRIPT #}
+  <a class="sr-action"
+     href="{{ url_for('transcript_view', row_id=r.row_id) }}"
+     target="_blank"
+     title="View Transcript">👁️</a>
+
+  {# 4️⃣ EXCEL #}
+  <a class="sr-action"
+     href="{{ url_for('download_excel_row', row_id=r.row_id) }}"
+     title="Download Excel">📊</a>
+
+  <a class="sr-action"
+   href="{{ url_for('comment_page', row_id=r.row_id) }}"
+   title="Add Comment">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <use href="#icon-edit"></use>
+  </svg>
+</a>
+
+</div>
+        </div>
+      </td>
+    </tr>
+  {% else %}
+    <tr>
+      <td colspan="7" style="text-align:center; padding:18px;">No results found.</td>
+    </tr>
+  {% endfor %}
+</tbody>
+
+    </table>
+  </div>
+
+   <div class="sr-bottom">
+    <div class="sr-downloads">
+      <button type="button" class="sr-btn" id="downloadSelectedExcel">Download Excel</button>
+      <button type="button" class="sr-btn" id="downloadSelectedPdf">Download PDF</button>
+    </div>
+
+
+    <div class="sr-pagination">
+      {# ⏮ First #}
+      {% if page > 1 %}
+        <a class="sr-page"
+           href="{{ url_for('sentiment_result',
+                            file_type=file_type,
+                            sentiment=sentiment,
+                            start_date=start_date,
+                            end_date=end_date,
+                            q=q,
+                            page=1) }}">
+          ⏮
+        </a>
+      {% else %}
+        <span class="sr-page disabled">⏮</span>
+      {% endif %}
+
+      {# ◀ Prev #}
+      {% if page > 1 %}
+        <a class="sr-page"
+           href="{{ url_for('sentiment_result',
+                            file_type=file_type,
+                            sentiment=sentiment,
+                            start_date=start_date,
+                            end_date=end_date,
+                            q=q,
+                            page=page-1) }}">
+          ◀
+        </a>
+      {% else %}
+        <span class="sr-page disabled">◀</span>
+      {% endif %}
+
+      {# Current page #}
+      <span class="sr-page active">{{ page }}</span>
+
+      {# ▶ Next #}
+      {% if page < total_pages %}
+        <a class="sr-page"
+           href="{{ url_for('sentiment_result',
+                            file_type=file_type,
+                            sentiment=sentiment,
+                            start_date=start_date,
+                            end_date=end_date,
+                            q=q,
+                            page=page+1) }}">
+          ▶
+        </a>
+      {% else %}
+        <span class="sr-page disabled">▶</span>
+      {% endif %}
+
+      {# ⏭ Last #}
+      {% if page < total_pages %}
+        <a class="sr-page"
+           href="{{ url_for('sentiment_result',
+                            file_type=file_type,
+                            sentiment=sentiment,
+                            start_date=start_date,
+                            end_date=end_date,
+                            q=q,
+                            page=total_pages) }}">
+          ⏭
+        </a>
+      {% else %}
+        <span class="sr-page disabled">⏭</span>
+      {% endif %}
+    </div>
+  </div>
+
+</form>
+</div>  {# closes sr-wrap #}
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.querySelector(".sr-filters");
+  if (!form) return;
+
+  const autoSubmitIds = ["fileType", "sentimentType", "startDate", "endDate"];
+
+  autoSubmitIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", () => form.submit());
+  });
+});
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // only notify if analysis was running before
+    if (sessionStorage.getItem("analysis_running") !== "1") return;
+    sessionStorage.removeItem("analysis_running");
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Analysis complete ✅", {
+        body: "Your sentiment result is ready to use."
+      });
+    }
+  });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const bulkForm = document.getElementById("bulkForm");
+  if (!bulkForm) return;
+
+  const selectAll = document.getElementById("selectAll");
+  const rowChecks = () => bulkForm.querySelectorAll(".rowCheck");
+
+  // Select all toggle
+  if (selectAll) {
+    selectAll.addEventListener("change", () => {
+      rowChecks().forEach(cb => cb.checked = selectAll.checked);
+    });
+  }
+
+  function submitSelected(url) {
+    // No messages: if none selected, just do nothing
+    const checked = bulkForm.querySelectorAll(".rowCheck:checked");
+    if (checked.length === 0) return;
+
+    bulkForm.action = url;
+    bulkForm.submit();
+  }
+
+  document.getElementById("downloadSelectedExcel")?.addEventListener("click", () => {
+    submitSelected("{{ url_for('download_selected_excel') }}");
+  });
+
+  document.getElementById("downloadSelectedPdf")?.addEventListener("click", () => {
+    submitSelected("{{ url_for('download_selected_pdf') }}");
+  });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  let currentAudio = null;
+  let currentRowId = null;
+
+  function setBtn(rowId, playing) {
+    const btn = document.getElementById(`play-btn-${rowId}`);
+    if (!btn) return;
+    btn.textContent = playing ? "⏸️" : "▶️";
+    btn.title = playing ? "Pause audio" : "Play audio";
+    btn.setAttribute("aria-label", playing ? "Pause audio" : "Play audio");
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[id^='play-btn-']");
+    if (!btn || btn.disabled) return;
+
+    const rowId = btn.dataset.rowId;
+    const src = btn.dataset.audioSrc;
+
+    if (!src) {
+      console.error("Missing data-audio-src on play button", btn);
+      return;
+    }
+
+    // Toggle same row
+    if (currentAudio && currentRowId === rowId) {
+      if (currentAudio.paused) {
+        currentAudio.play();
+        setBtn(rowId, true);
+      } else {
+        currentAudio.pause();
+        setBtn(rowId, false);
+      }
+      return;
+    }
+
+    // Stop previous audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setBtn(currentRowId, false);
+    }
+
+    // Start new audio
+    currentAudio = new Audio(src);
+    currentRowId = rowId;
+
+    currentAudio.addEventListener("ended", () => {
+      setBtn(rowId, false);
+      currentAudio = null;
+      currentRowId = null;
+    });
+
+    currentAudio.addEventListener("error", () => {
+      console.error("Audio failed to load:", src);
+      setBtn(rowId, false);
+      currentAudio = null;
+      currentRowId = null;
+      alert("Could not play this audio.");
+    });
+
+    currentAudio.play();
+    setBtn(rowId, true);
+  });
+});
+</script>
+
+{% endblock %}
+
+
+
+
+

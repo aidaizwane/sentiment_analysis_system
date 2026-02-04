@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Admin{% endblock %}</title>
+
+  {% block extra_css %}{% endblock %}
+
+  <style>
+
+    /* Shared admin page title */
+.admin-title,
+.ua-title{
+  font-size: 34px;
+  font-weight: 700;
+  color: #2b2b2b;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.08);
+  margin: 0 0 18px;
+}
+
+  body{
+    margin:0;
+    font-family: Arial, sans-serif;
+    /* ✅ screenshot background */
+    background: linear-gradient(#f3f3f3 0%, #cfcfcf 100%);
+    min-height: 100vh;
+  }
+
+  .topbar{
+    height:72px;
+    background: linear-gradient(90deg, #7b0c10, #b31217);
+    display:flex;
+    align-items:center;
+    padding: 0 22px;
+    color:#fff;
+  }
+
+  .brand{ font-weight:800; font-size:26px; letter-spacing:0.5px; }
+
+  .nav{ margin-left:auto; display:flex; gap:12px; align-items:center; }
+  .nav a{
+    color:#fff; text-decoration:none;
+    padding:8px 12px; border-radius:10px; font-size:13px;
+  }
+  .nav a:hover{ background: rgba(255,255,255,0.18); }
+
+  .logout{
+    margin-left: 10px;
+    padding:10px 14px;
+    background: rgba(0,0,0,0.35);
+    border-radius:10px;
+  }
+
+  /* ✅ same “frame” width like screenshot */
+  .page{
+    padding: 26px 22px 60px;
+  }
+
+  .admin-container{
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+</style>
+
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">SENTIMENT ANALYSIS</div>
+
+  <div class="nav">
+    <a href="{{ url_for('admin_home') }}">Home</a>
+    <a href="{{ url_for('admin_account_list') }}">Account Profile Listing</a>
+    <a class="logout" href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</header>
+
+<div class="page">
+  <div class="admin-container">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
